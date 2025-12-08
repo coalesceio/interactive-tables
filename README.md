@@ -131,5 +131,7 @@ A table will be dropped if all of these are true:
 ## Code
 
 ### Interactive Table Code
-
+* [Node definition](https://github.com/coalesceio/interactive-tables/blob/main/nodeTypes/InteractiveTable-602/definition.yml)
+* [Create Template](https://github.com/coalesceio/interactive-tables/blob/main/nodeTypes/InteractiveTable-602/create.sql.j2)
+* [Run Template](https://github.com/coalesceio/interactive-tables/blob/main/nodeTypes/InteractiveTable-602/run.sql.j2) 
 
