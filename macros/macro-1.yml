@@ -1,0 +1,175 @@
+fileVersion: 1
+id: "1"
+macroString: |
+  {# ----------------------------------------------------------------------
+    Macro: colcict
+    Purpose: Builds a dictionary (ns.column_dict) of columns for all sources
+  ---------------------------------------------------------------------- #}
+  {% macro colcict(ns) %}
+    {% if sources is defined %}
+      {% for source_idx in range(sources | length) %}
+        {% set source = sources[source_idx] %}
+
+        {# Initialize the source entry if missing #}
+        {% if source_idx not in ns.column_dict %}
+          {% set _ = ns.column_dict.update({source_idx: {}}) %}
+        {% endif %}
+
+        {# Add all columns in this source to the dictionary #}
+        {% for column in source.columns %}
+          {% set _ = ns.column_dict[source_idx].update({column.id: column}) %}
+        {% endfor %}
+      {% endfor %}
+    {% endif %}
+  {% endmacro %}
+
+
+  {#--------------------------------------------------------
+    Initialize variables for node types that use the 
+    advanced deployment strategy
+  ----------------------------------------------------------#}
+
+  {% if desiredState %}
+      {% set columns = desiredState.columns %}
+      {% set storageLocations = desiredState.storageLocations %}
+      {% set config = desiredState.config %}
+      {% set sources = desiredState.sources %}
+      {% set node = desiredState.node %}
+      {% set parameters = desiredState.parameters %}
+
+      {% set ns = namespace(column_dict = {}) %}
+      {# Populate column dictionary #}
+      {{ colcict(ns) }}
+
+  {% endif %}
+    
+
+
+  {# ---------------------------------------------------------------------- 
+    Macro: partition_by
+    Purpose: Builds a partition key string for a node.
+             - Uses '~' delimiter for DIM nodes, ',' otherwise.
+             - Concatenates partitionBy config columns with proper transforms.
+  ---------------------------------------------------------------------- #}
+  {% macro partition_by(nodetype) %}
+
+    {# Create namespaces #}
+    {% set nsVars = namespace(partition = "", delim = "") %}
+
+
+    {# Choose delimiter based on node type #}
+    {% if nodetype == 'DIM' %}
+      {% set nsVars.delim = '~' %}
+    {% else %}
+      {% set nsVars.delim = ',' %}
+    {% endif %}
+
+    {# Build partition expression #}
+    {% if config is defined and config.partitionBy is defined %}
+      {% for item in config.partitionBy.get('items', []) %}
+        
+        {% set part_col = ns.column_dict[0][item.partColName.id] %}
+        
+        {%- if loop.first -%}
+              {%- set nsVars.partition = get_source_transform(part_col) -%}
+          {%- else -%}
+              {%- set nsVars.partition = nsVars.partition + nsVars.delim + get_source_transform(part_col) -%}
+          {%- endif -%}
+      {% endfor %}
+    {% endif %}
+
+    {{ nsVars.partition }}
+  {% endmacro %}
+
+
+  {% macro order_by_col(return) %}
+
+      {% set nsVariables = namespace(orderBy="") -%}
+    
+      {% if config.recordVersioning in ('Datetime Column') -%}
+          
+          {% set datetimeColSort = config.orderBy.get('items',[]) -%}		
+          {% set dateTimeCol = ns.column_dict[0][datetimeColSort[0].colName.id] -%}        
+          {% set nsVariables.orderBy = get_source_transform(dateTimeCol) -%}
+
+  	{% elif config.recordVersioning in ('Integer Column')%}
+          
+          {% set datetimeNumericColSort = config.orderseq.get('items',[]) -%}
+  	    {% set dateTimeCol = ns.column_dict[0][datetimeNumericColSort[0].colNameseq.id] -%}        
+          {% set nsVariables.orderBy = get_source_transform(dateTimeCol) -%}
+            
+      {% else -%}
+          {% set dateTimeColSort = config.orderByDateTime.get('items',[]) -%}
+          {% set dateCol = ns.column_dict[0][dateTimeColSort[0].colNameDate.id] -%}
+          {% set timeCol = ns.column_dict[0][dateTimeColSort[0].colNameTimestamp.id] -%}
+          {% set nsVariables.orderBy = 'to_timestamp(' + get_source_transform(dateCol) +  '|| ' + '\'T\'' + ' ||' + get_source_transform(timeCol) +  ')' -%}
+          
+      {% endif -%}
+
+      {{ nsVariables.orderBy }}
+
+  {% endmacro %}
+
+  {% macro order_by_col_int(return) %}
+
+      {% set nsVariables = namespace(orderBy="") -%}
+
+        {% set datetimeNumericColSort = config.recordorderBy.get('items',[]) %}
+  	  {% set dateTimeCol = ns.column_dict[0][datetimeNumericColSort[0].ocolName.id] -%}    
+        {% set nsVariables.orderBy = get_source_transform(dateTimeCol) -%} 
+            
+      {{ nsVariables.orderBy }}
+
+  {% endmacro %}
+
+  {% macro dimensionHistoryPk() %}
+
+      {%- set nsVariables = namespace(dimensionHistoryColumns="") -%}
+
+      {%- set partitionBy = partition_by('DIM').split("~") -%}
+      {%- set orderBy = order_by_col() -%}
+
+      {%- for col in partitionBy -%}
+          {%- if loop.first -%}
+              {%- set nsVariables.dimensionHistoryColumns = col -%}
+          {%- else -%}
+              {%- set nsVariables.dimensionHistoryColumns = nsVariables.dimensionHistoryColumns + ' || ' + '\'-\'' + ' ||' + col -%}
+          {%- endif -%}
+      {%- endfor -%}
+
+      {%if config.recordVersioning not in ('Integer Column')%}
+          {%- set nsVariables.dimensionHistoryColumns = nsVariables.dimensionHistoryColumns + ' || ' + '\'-\'' + ' || date_part(epoch_milliseconds, ' + orderBy + ')' -%}
+      {%else%}
+          {%- set nsVariables.dimensionHistoryColumns =  nsVariables.dimensionHistoryColumns ~ " || '-' || " ~ orderBy -%}
+          {%- set nsVariables.dimensionHistoryColumns = "MD5(" ~ nsVariables.dimensionHistoryColumns ~")" -%}
+      {%endif%}
+
+      {{- nsVariables.dimensionHistoryColumns -}}
+
+  {% endmacro %}
+
+  {#--------------------------------------------------------
+  sortorder_by_colv macro
+  ----------------------------------------------------------#}
+
+  {%- macro sortorder_by_colv(return) -%}
+      {%- set nsVariables = namespace(sortcolNames="") -%}
+      {%if config.orderby %}
+          {%- for i in config.orderbycolumn.get('items') -%}
+              {%- set colName = i.sortColName.name -%}
+              {%- set colOrder = i.sortOrder -%}
+  	        {%- if loop.first -%}	      
+  		        {%- set nsVariables.sortcolNames = '"' + colName + '"' + colOrder -%}	  
+  	        {%- else -%}      
+  		        {%- set nsVariables.sortcolNames = nsVariables.sortcolNames + ',' + '"' + colName + '"' + colOrder-%}	  
+  	        {%- endif -%}
+          {%- endfor -%}	
+              {%- set nsVariables.sortcolNames = 'order by' + nsVariables.sortcolNames -%}
+   
+      {% endif %} 
+      
+      {{- nsVariables.sortcolNames -}}
+   
+  {%- endmacro -%}
+name: macro
+type: Macro

@@ -1,0 +1,466 @@
+{#
+    Copyright (c) 2025 Coalesce. All rights reserved.
+This script and its associated documentation are confidential and proprietary to Coalesce.
+Unauthorized reproduction, distribution, or disclosure of this material is strictly prohibited.
+Coalesce permits you to copy and modify this script for the purposes of using with Coalesce but
+does not permit copying or modification for any other purpose.
+#}
+{# == Node Type Name  : Interactive Table == #}
+{# == Node Type Description : This node creates and runs interactive table. Materialization type and cluster key added with this version == #}
+
+{% if desiredState and currentState is defined and currentState != desiredState %}
+    {% if desiredState.parameters == {} or 'targetInteractiveTableWarehouse' not in desiredState.parameters or desiredState.parameters.targetInteractiveTableWarehouse == '' %}
+
+        {{ stage('WARNING') }}
+            /*Add parameter targetInteractiveTableWarehouse in workspace settings and deployment environment for successful execution of node.
+            The default value for the parameter is 'DEV ENVIRONMENT'.
+            Refer to documentation for more info */
+    {% endif %}
+{% endif %}
+
+{% if desiredState %}
+    {% if desiredState.node.materializationType == 'interactive table' %}
+
+    {# Identify all config changes that would cause a CREATE instead of ALTER#}
+        {% if currentState != undefined %}
+        {# General metadata #}
+
+            {% set sourcesTest = currentState.sources | count == desiredState.sources | count %}
+
+            {# Desired Namespace Variables #}
+
+            {% set nsVariables = namespace(nsDesiredDepStorageLocations="",nsDesiredSourceStorageLocations="",
+            nsDesiredTargetStorageLocations="",
+            nsDesiredUsedStorageLocations="",
+            storageLocationTest= true,
+            descolchanges = 0,
+            othercolchanges = 0, joinTest = True) %}
+
+            {% if sourcesTest == true %}
+                {% for src in desiredState.sources %}
+                    {% if currentState.sources[loop.index0].join != src.join %}
+                        {% set nsVariables.joinTest = false %}  {# Set joinTest to false if changes are detected #}
+                    {% endif %}
+                {% endfor %}
+            {% endif %}
+
+
+
+            {# Test to see if the transform in a column has changed #}
+            {# Desired Namespace Variables Transform #}
+            {% set desiredTransformArray = desiredState.sources | map(attribute='columns') | first | map(attribute='transform') | list -%}
+
+            {# Test to see if the transform in a column has changed #}
+            {# Current Namespace Variables Transform #}
+            {% set currentTransformArray = currentState.sources | map(attribute='columns') | first | map(attribute='transform') | list -%}
+
+            {% set columnsTransformTest = currentTransformArray == desiredTransformArray %}
+
+            {% set columnCountTest = currentState.columns | count == desiredState.columns | count %}
+            
+            {% set currentColumnIds = currentState.columns | map(attribute='id') | list | sort %}
+            {% set desiredColumnIds = desiredState.columns | map(attribute='id') | list | sort %}
+            {% set columnIdTest = currentColumnIds == desiredColumnIds %}
+
+            {% set columnChangeTest = columnCountTest and columnIdTest %}
+
+
+            {# Change Node Name or Change Storage Location #}
+            {# Storage Location Tests #}
+            {# Test#}
+            {% if currentState.storageLocations | length == 0 %}
+                {% set currentDatabase = currentState.storageLocations | selectattr('name', 'equalto', currentState.node.location.name) | map(attribute='database') | string %}
+                {% set currentSchema = currentState.storageLocations | selectattr('name', 'equalto', currentState.node.location.name) | map(attribute='schema') | string %}
+                {% set currentDatabaseSchema = currentDatabase + '.' + currentSchema %}
+
+            {% else %}
+            {# Current target node mappings #}
+                {% set currentDatabase = currentState.storageLocations | selectattr('name', 'equalto', currentState.node.location.name) | map(attribute='database') | first %}
+                {% set currentSchema = currentState.storageLocations | selectattr('name', 'equalto', currentState.node.location.name) | map(attribute='schema') | first %}
+                {% set currentDatabaseSchema = currentDatabase + '.' + currentSchema %}
+            {% endif %}
+
+            {# Desired target node mappings #}
+            {% set desiredDatabase = desiredState.storageLocations | selectattr('name', 'equalto', desiredState.node.location.name) | map(attribute='database') | first %}
+            {% set desiredSchema = desiredState.storageLocations | selectattr('name', 'equalto', desiredState.node.location.name) | map(attribute='schema') | first %}
+            {% set desiredDatabaseSchema = desiredDatabase + '.' + desiredSchema %}
+
+            {% if currentDatabaseSchema != desiredDatabaseSchema %}
+                {% set nsVariables.storageLocationTest = false %}
+            {% endif %}
+
+            {# Config #}
+            {% set insertStrategyTest = currentState.config.insertStrategy == desiredState.config.insertStrategy %}
+            {% set groupByAllTest = currentState.config.groupByAll == desiredState.config.groupByAll %}
+            {% set selectDistinctTest = currentState.config.selectDistinct == desiredState.config.selectDistinct %}
+
+            {# grant config change#}
+            {% set granttest = currentState.config.cpygrants == desiredState.config.cpygrants%}
+
+            {# Node#}
+            {% set nodeNameTest = currentState.node.name == desiredState.node.name %}
+            {% set nodeMaterializationType = currentState.node.materializationType == desiredState.node.materializationType %}
+            {% set nodeIsMultisource = currentState.node.isMultisource == desiredState.node.isMultisource %}
+
+            {# Column description changes and other column level changes #}
+            {% for alterCurCol in currentState.columns %}
+                {% if alterCurCol.id in desiredState.columns | map(attribute="id") %}
+                    {% set currentColumnName = currentState.columns | selectattr('id', "equalto", alterCurCol.id) | map(attribute='name') | first %}
+                    {% set currentDescription = currentState.columns | selectattr('id', "equalto", alterCurCol.id) | map(attribute='description') | first %}
+                    {% set currentDatatype = currentState.columns | selectattr('id', "equalto", alterCurCol.id) | map(attribute='dataType') | first %}
+                    {% set currentNullable = currentState.columns | selectattr('id', "equalto", alterCurCol.id) | map(attribute='nullable') | first %}
+                    {% set currentDefaultValue = currentState.columns | selectattr('id', "equalto", alterCurCol.id) | map(attribute='defaultValue') | first %}
+
+                    {% set desiredColumnName = desiredState.columns | selectattr('id', "equalto", alterCurCol.id) | map(attribute='name') | first %}
+                    {% set desiredDescription = desiredState.columns | selectattr('id', "equalto", alterCurCol.id) | map(attribute='description') | first %}
+                    {% set desiredDatatype = desiredState.columns | selectattr('id', "equalto", alterCurCol.id) | map(attribute='dataType') | first %}
+                    {% set desiredNullable = desiredState.columns | selectattr('id', "equalto", alterCurCol.id) | map(attribute='nullable') | first %}
+                    {% set desiredDefaultValue = desiredState.columns | selectattr('id', "equalto", alterCurCol.id) | map(attribute='defaultValue') | first %}
+
+
+                    {% set datatypeTest = currentDatatype == desiredDatatype %}
+                    {% set nullableTest = currentNullable == desiredNullable %}
+                    {% set defaultValueTest = currentDefaultValue == desiredDefaultValue %}
+                    {% set descriptionTest = currentDescription == desiredDescription %}
+                    {% set columnnameTest = currentColumnName == desiredColumnName %}
+
+                    {% if (descriptionTest == false) %}
+                        {% set nsVariables.descolchanges = nsVariables.descolchanges + 1 %}
+                    {% endif %}
+                    {# Column nullability is not applicable to interactive Table #}
+                    {# The following checks are for other column changes that force a CREATE #}
+                    {% if (datatypeTest == false or defaultValueTest == false or columnnameTest == false ) %}
+                        {% set nsVariables.othercolchanges = nsVariables.othercolchanges + 1 %}
+                    {% endif %}
+
+                {% endif %}
+            {% endfor %}
+
+            {# Warehouse Test #}
+            {% if desiredState.parameters.targetInteractiveTableWarehouse == 'DEV ENVIRONMENT' %}
+                {% set warehouseTest = currentState.config.warehouseName == desiredState.config.warehouseName %}
+            {% else %}
+                {% set warehouseTest = currentState.parameters.targetInteractiveTableWarehouse == desiredState.parameters.targetInteractiveTableWarehouse %}
+            {% endif %}
+
+            {% set lagSpecificationTest = currentState.config.lagSpecification == desiredState.config.lagSpecification %}
+            {% set autoRefreshTest = currentState.config.autoRefresh == desiredState.config.autoRefresh %}
+            {% set nodeCommentTest = currentState.node.description == desiredState.node.description %}
+
+            {# Clustering Test #}
+            {% set clusterKeyTest = currentState.config.clusterKey == desiredState.config.clusterKey %}
+            {% set clusterKeyExpressionsTest = currentState.config.clusterKeyExpressions == desiredState.config.clusterKeyExpressions %}
+            {% set clusterKeyConfigTest = currentState.config.clusterKeyConfig == desiredState.config.clusterKeyConfig %}
+            {% set clusterKeyConfigExpressionsTest = currentState.config.clusterKeyConfigExpressions == desiredState.config.clusterKeyConfigExpressions %}
+
+            {% if
+                clusterKeyTest == false or
+                clusterKeyExpressionsTest == false or
+                clusterKeyConfigTest == false or
+                clusterKeyConfigExpressionsTest == false %}
+
+                {% set clusterTest = false %}
+            {% else %}
+                {% set clusterTest = true %}
+            {% endif %}
+
+
+            {# If any of the above are false then a CREATE must be run #}
+            {% if
+                nsVariables.othercolchanges > 0 or
+                columnCountTest == false or 
+                sourcesTest == false or
+                nsVariables.joinTest == false or
+                columnsTransformTest == false or
+                insertStrategyTest == false or
+                groupByAllTest == false or
+                selectDistinctTest == false or
+                nodeIsMultisource == false or
+                initializeTest == false or
+                refreshTest == false or
+                granttest == false or
+                (currentState.storageLocations | length == 0) or
+                warehouseTest == false or
+                lagSpecificationTest == false or
+                autoRefreshTest == false or
+                clusterTest == false or
+                nsVariables.storageLocationTest == false or
+                nodeCommentTest == false %}
+
+                {% set createTest = true %}
+            {% else %}
+                {% set createTest = false %}
+            {% endif %}
+
+        {% endif %}
+
+    {# Identify config changes that would only result in ALTER #}
+        {% if createTest == false %}
+            {# Check if an ALTER-only action is needed. These are COMMENT and NAME changes #}
+            {% if
+                nodeNameTest == false or                
+                nsVariables.descolchanges > 0 %}       
+
+                {% set alterOnlyTest = true %}
+            {% else %}
+                {% set alterOnlyTest = false %}
+            {% endif %}
+        {% endif %}
+
+    {# CREATE or ALTER #}
+        {% if (currentState == undefined) or (createTest == true and desiredState.node.materializationType == currentState.node.materializationType) %}
+
+
+        {# Figure out cluster key #}
+            {% set nsVariables = namespace(finalClusterKey="") %}
+            {% if desiredState.config.clusterKey == true %}
+                {% if desiredState.config.clusterKeyExpressions == true %}
+                    {% set column, expression = desiredState.config.clusterKeyConfigExpressions.get('items') | map(attribute='columnNameExpressions.name') | list, desiredState.config.clusterKeyConfigExpressions.get('items') | map(attribute='sqlExpression') | list %}
+
+                    {%- set nsVariables = namespace(clusterValues=[]) %}
+
+                    {% for r in column %}
+                        {% if expression[loop.index0] == "" or expression[loop.index0] is undefined %}
+
+                            {% set nsVariables.clusterValues = nsVariables.clusterValues + ['"'+r+'"'] %}
+
+                        {% else %}
+
+                            {% set nsVariables.clusterValues = nsVariables.clusterValues + [expression[loop.index0]] %}
+
+                        {% endif %}
+                    {% endfor %}
+
+                    {% set nsVariables.finalClusterKey = 'CLUSTER BY (' + nsVariables.clusterValues | join(',') + ')' %}
+
+                {% else %}
+
+                    {% set column = desiredState.config.clusterKeyConfig.get('items') | map(attribute='columnName.name') | list %}
+
+                    {%- set nsVariables = namespace(clusterValues=[]) %}
+
+                    {% for r in column %}
+                        {% set nsVariables.clusterValues = nsVariables.clusterValues + ['"'+r+'"'] %}
+                    {% endfor %}
+
+                    {% set nsVariables.finalClusterKey = 'CLUSTER BY (' + nsVariables.clusterValues | join(',') + ')' %}
+
+                {% endif %}
+            {% endif %}
+
+
+        {# Interactive Table Name #}
+            {% set targetInteractiveTableDatabase = ref_no_link(desiredState.node.location.name, desiredState.node.name).split('.')[0] %}
+            {% set targetInteractiveTableSchema = ref_no_link(desiredState.node.location.name, desiredState.node.name).split('.')[1] %}
+            {% set fullyQualifiedTargetInteractiveTableName = ref_no_link(desiredState.node.location.name, desiredState.node.name) %}
+
+        {# Warehouse #}
+        {# Can be updated during deployment via a parameter to account for different warehouse names in different deployments #}
+            {% if desiredState.parameters.targetInteractiveTableWarehouse == 'DEV ENVIRONMENT' %}
+                {% set interactiveTableWarehouse = desiredState.config.warehouseName %}
+            {% else %}
+                {% set interactiveTableWarehouse = desiredState.parameters.targetInteractiveTableWarehouse %}
+            {% endif %}
+
+        {# AutoRefresh Option or Lag Specification #}
+            {% if desiredState.config.autoRefresh == true %}
+                {% set interactiveTableLagValue = desiredState.config.lagSpecification.get('items') | map(attribute='lagValue') | first %}
+                {% set interactiveTableLagValuePeriod = desiredState.config.lagSpecification.get('items') | map(attribute='lagPeriod') | first %}
+
+                {% set interactiveTableLagSpecification = interactiveTableLagValue ~ ' ' ~ interactiveTableLagValuePeriod %}
+            {% endif %}
+
+        {# Refresh-type option #}
+            {%- if desiredState.config.refresh_mode == '' %}
+                {% set interactiveTablerefresh = 'INCREMENTAL' %}
+            {% else %}
+                {% set interactiveTablerefresh = desiredState.config.refresh_mode %}
+            {% endif %}
+
+        {# Initialize option #}
+            {%- if desiredState.config.initialize == '' %}
+                {% set interactiveTableinitialize = 'ON_CREATE' %}
+            {% else %}
+                {% set interactiveTableinitialize = desiredState.config.initialize %}
+            {% endif %}
+
+            {%- if desiredState.node.description | length > 0 %}
+                {% set interactiveTableComment = "COMMENT = " + "'" + desiredState.node.description | escape + "'" %}
+            {% else %}
+                {% set interactiveTableComment = "" %}
+            {% endif %}
+
+            {% if nsVariables.storageLocationTest == false or
+                nodeNameTest == false %}
+
+            {# Current Interactive Table Name #}
+
+                {% set currentTargetInteractiveTableDatabase = ref_no_link(currentState.node.location.name, currentState.node.name).split('.')[0] %}
+                {% set currentTargetInteractiveTableSchema = ref_no_link(currentState.node.location.name, currentState.node.name).split('.')[1] %}
+                {% set currentFullyQualifiedTargetInteractiveTableName = ref_no_link(currentState.node.location.name, currentState.node.name) %}
+
+            {% endif %}
+
+            {% if currentState == undefined or createTest == true %}
+            {# Create Static Interactive Table #}
+                {% if desiredState.config.autoRefresh == false %}
+                    {{ stage('Create '+ '{{ desiredState.node.materializationType }}', true, "sql", "create") }}
+                    CREATE OR REPLACE {{ keyword }} INTERACTIVE TABLE {{ fullyQualifiedTargetInteractiveTableName }}
+                        {{ nsVariables.finalClusterKey }}
+                        {% if interactiveTableComment | length > 0 %}{{ interactiveTableComment }}{% endif %}
+                    (
+                        {%- for col in desiredState.columns %}
+                            "{{ col.name }}" {{ col.dataType }}
+                            {%- if col.description | length > 0 %} COMMENT '{{ col.description | escape }}'{% endif %}
+                            {%- if not loop.last -%}, {% endif %}
+                        {%- endfor -%}
+                    )
+                    AS
+                    {% for source in desiredState.sources %}
+                        SELECT {% if desiredState.config.selectDistinct %} DISTINCT {% endif %}
+                        {% for col in source.columns %}
+                            {{ get_source_transform(col) }} AS "{{ col.name }}"
+                            {%- if not loop.last -%}, {% endif %}
+                        {% endfor %}
+                        {{ source.join }}
+                        {% if desiredState.config.groupByAll %} GROUP BY ALL {% endif %}
+
+                        {% if not loop.last %}
+                            {% if desiredState.config.insertStrategy in ['UNION', 'UNION ALL'] %}
+                                {{ desiredState.config.insertStrategy }}
+                            {% endif %}
+                        {% endif %}
+                    {% endfor %}
+
+                {% else %}
+
+            {# Create Dynamic Interactive Table #}
+                    {{ stage('Create '+ '{{ desiredState.node.materializationType }}', true, "sql", "create") }}
+                    CREATE OR REPLACE {{ keyword }} INTERACTIVE TABLE {{ fullyQualifiedTargetInteractiveTableName }}
+                        {{ nsVariables.finalClusterKey }}
+                        TARGET_LAG = '{{ interactiveTableLagSpecification }}'
+                        WAREHOUSE = {{ interactiveTableWarehouse }}
+                        {% if interactiveTableComment | length > 0 %}{{ interactiveTableComment }}{% endif %}
+                    (
+                        {%- for col in desiredState.columns %}
+                            "{{ col.name }}" {{ col.dataType }}
+                            {%- if col.description | length > 0 %} COMMENT '{{ col.description | escape }}'{% endif %}
+                            {%- if not loop.last -%}, {% endif %}
+                        {%- endfor -%}
+                    )
+                    AS
+                    {% for source in desiredState.sources %}
+                        SELECT {% if desiredState.config.selectDistinct %} DISTINCT {% endif %}
+                        {% for col in source.columns %}
+                            {{ get_source_transform(col) }} AS "{{ col.name }}"
+                            {%- if not loop.last -%}, {% endif %}
+                        {% endfor %}
+                        {{ source.join }}
+                        {% if desiredState.config.groupByAll %} GROUP BY ALL {% endif %}
+
+                        {% if not loop.last %}
+                            {% if desiredState.config.insertStrategy in ['UNION', 'UNION ALL'] %}
+                                {{ desiredState.config.insertStrategy }}
+                            {% endif %}
+                        {% endif %}
+                    {% endfor %}
+
+                {% endif %}
+            {% endif %}
+        {% else %}
+            {% if (currentState != undefined and desiredState != undefined) and (alterOnlyTest == true and desiredState.node.materializationType == currentState.node.materializationType) %}
+            {% if nodeNameTest == false %} 
+                {{ stage('Rename Interactive Table', true, 'sql', 'alter') }}
+                ALTER TABLE {{ ref_no_link(currentState.node.location.name, currentState.node.name) }}
+                RENAME TO {{ ref_no_link(desiredState.node.location.name, desiredState.node.name) }}
+            {% endif %}
+
+            {# Desired Interactive Table Name #}
+                {% set desiredTargetInteractiveTableDatabase = ref_no_link(desiredState.node.location.name, desiredState.node.name).split('.')[0] %}
+                {% set desiredTargetInteractiveTableSchema = ref_no_link(desiredState.node.location.name, desiredState.node.name).split('.')[1] %}
+                {% set desiredFullyQualifiedTargetInteractiveTableName = ref_no_link(desiredState.node.location.name, desiredState.node.name) %}
+
+            {# Current Interactive Table Name (Used only for current warehouse/lag checks) #}
+
+                {% set currentTargetInteractiveTableDatabase = ref_no_link(currentState.node.location.name, currentState.node.name).split('.')[0] %}
+                {% set currentTargetInteractiveTableSchema = ref_no_link(currentState.node.location.name, currentState.node.name).split('.')[1] %}
+                {% set currentFullyQualifiedTargetInteractiveTableName = ref_no_link(currentState.node.location.name, currentState.node.name) %}
+
+            {# Desired Warehouse #}
+                {% if desiredState.parameters.targetInteractiveTableWarehouse == 'DEV ENVIRONMENT' %}
+                    {% set desiredInteractiveTableWarehouse = desiredState.config.warehouseName %}
+                {% else %}
+                    {% set desiredInteractiveTableWarehouse = desiredState.parameters.targetInteractiveTableWarehouse %}
+                {% endif %}
+
+            {# Desired Autorefresh Option or Lag Specification #}
+                {% if desiredState.config.autoRefresh == true %}
+                    {% set desiredInteractiveTableLagValue = desiredState.config.lagSpecification.get('items') | map(attribute='lagValue') | first %}
+                    {% set desiredInteractiveTableLagValuePeriod = desiredState.config.lagSpecification.get('items') | map(attribute='lagPeriod') | first %}
+
+                    {% set desiredInteractiveTableLagSpecification = desiredInteractiveTableLagValue ~ ' ' ~ desiredInteractiveTableLagValuePeriod %}
+                {% endif %}
+                
+            {# Current Warehouse (Need to derive this for the comparison) #}
+            {% if currentState.parameters.targetInteractiveTableWarehouse == 'DEV ENVIRONMENT' %}
+                {% set currentInteractiveTableWarehouse = currentState.config.warehouseName %}
+            {% else %}
+                {% set currentInteractiveTableWarehouse = currentState.parameters.targetInteractiveTableWarehouse %}
+            {% endif %}
+
+            {# ALTER for Warehouse if necessary #}
+                {% set interactiveTableWarehouse = '' %}
+                {% if desiredInteractiveTableWarehouse != currentInteractiveTableWarehouse %}
+                    {# This condition should not be met if createTest logic is correct, but the setting for warehouse change is still needed #}
+                    {% set interactiveTableWarehouse = 'WAREHOUSE = ' + desiredInteractiveTableWarehouse %}
+                {% endif %}
+
+            {# Change in column description #}
+                {% for alterCurCol in currentState.columns %}
+                    {% if alterCurCol.id in desiredState.columns | map(attribute="id") %}
+
+                        {# Re-set these variables which are needed for the column comment ALTER statement. #}
+                        {% set currentDescription = alterCurCol.description %}
+                        {% set desiredColumnName = desiredState.columns | selectattr('id', "equalto", alterCurCol.id) | map(attribute='name') | first %}
+                        {% set desiredDescription = desiredState.columns | selectattr('id', "equalto", alterCurCol.id) | map(attribute='description') | first %}
+                        
+                        {# If column description changed, run ALTER COMMENT SQL #}
+                        {% if currentDescription != desiredDescription %}
+                            {{ stage('Alter Column Description', true, 'sql', 'alter') }}
+                            COMMENT ON COLUMN {{ desiredFullyQualifiedTargetInteractiveTableName }}."{{ desiredColumnName }}" IS '{{ desiredDescription | escape }}'
+                        {% endif %}
+
+                    {% endif %} {# ENDIF: Closes if alterCurCol.id ... #}
+                {% endfor %}
+
+                {# Alter node comment and warehouse/lag if changed (even if createTest is false, these can be altered) #}
+                {% if nodeCommentTest == false or interactiveTableWarehouse != '' or lagSpecificationTest == false or autoRefreshTest == false %}
+                    {{ stage('Alter Interactive Table', true, 'sql', 'alter') }}
+                    ALTER INTERACTIVE TABLE {{ desiredFullyQualifiedTargetInteractiveTableName }}
+                        {% if interactiveTableWarehouse != '' %}SET {{ interactiveTableWarehouse }}{% endif %}
+                        {% if nodeCommentTest == false %}SET COMMENT = '{{ desiredState.node.description | escape }}'{% endif %}
+                        {% if lagSpecificationTest == false or autoRefreshTest == false %}SET TARGET_LAG = '{{ desiredInteractiveTableLagSpecification }}'{% endif %}
+                {% endif %}
+
+            {% else %}
+                {% if (desiredState.node.materializationType == 'interactive table') or
+                    (currentState.node.materializationType == 'interactive table' ) %}
+                {# Materialization switch logic can go here if needed #}
+                {% endif %}
+            {% endif %} 
+        {% endif %} 
+    {% endif %} 
+
+{% else %}
+    {% if currentState != undefined and desiredState == undefined %}
+
+    {# Interactive Table Name #}
+        {% set targetInteractiveTableDatabase = ref_no_link(currentState.node.location.name, currentState.node.name).split('.')[0] %}
+        {% set targetInteractiveTableSchema = ref_no_link(currentState.node.location.name, currentState.node.name).split('.')[1] %}
+        {% set fullyQualifiedTargetInteractiveTableName = ref_no_link(currentState.node.location.name, currentState.node.name) %}
+
+        {{ stage('Drop ' + '{{currentState.node.materializationType}}') }}
+        DROP INTERACTIVE TABLE IF EXISTS {{ fullyQualifiedTargetInteractiveTableName }}
+
+    {% endif %}
+{% endif %}

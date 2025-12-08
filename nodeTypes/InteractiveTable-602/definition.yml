@@ -1,0 +1,156 @@
+fileVersion: 1
+id: "602"
+isDisabled: false
+metadata:
+  defaultStorageLocation: null
+  error: null
+  nodeMetadataSpec: |-
+    capitalized: Interactive Table
+    short: INTTBL
+    tagColor: teal 
+    plural: Interactive Tables
+
+    deployStrategy: advanced
+
+    config:
+    - groupName: General Options
+      items:
+        - type: label
+          attributeName: note1
+          displayName: 
+                    "NOTE:
+                    \n
+                    Cannot be used as source for other tables. No Streams or Dynamic tables can be created on Interactive Tables. Can be only used as a target at the end of a data pipeline."
+        - type: materializationSelector
+          default: interactive table
+          options:
+          - interactive table
+          isRequired: true
+        
+        - type: toggleButton
+          attributeName: selectDistinct
+          displayName: Distinct
+          default: false
+          enableIf: "{% if config.groupByAll %} false {% else %} true {% endif %}"
+
+        - type: toggleButton
+          attributeName: groupByAll
+          displayName: Group By All
+          default: false
+          enableIf: "{% if config.selectDistinct %} false {% else %} true {% endif %}"
+
+        - type: multisourceToggle
+
+        - displayName: Multi Source Strategy
+          attributeName: insertStrategy
+          type: dropdownSelector
+          default: UNION ALL
+          options:
+          - "UNION"
+          - "UNION ALL" 
+          isRequired: false
+          enableIf: "{% if node.isMultisource %} true {% else %} false {% endif %}"
+
+        - displayName: Enable Tests
+          attributeName: testsEnabled
+          type: toggleButton
+          default: false
+
+        - type: toggleButton
+          attributeName: clusterKey
+          displayName: Cluster Key
+          default: false
+          isRequired: true
+
+        - type: toggleButton
+          attributeName: clusterKeyExpressions
+          displayName: All Expressions in Cluster Key
+          default: false
+          isRequired: false
+          enableIf: "{% if config.clusterKey %} true {% else %} false {% endif %}"
+        
+        - type: tabular
+          displayName: 'Cluster Key'
+          attributeName: clusterKeyConfig
+          columns:
+
+          - type: columnDropdownSelector
+            displayName: Column Name
+            attributeName: columnName
+            isRequired: false
+
+          isRequired: false
+          enableIf: "{% if (config.clusterKey and not config.clusterKeyExpressions)  %} true {% else %} false {% endif %}"
+
+        - type: tabular
+          displayName: 'Cluster Key'
+          attributeName: clusterKeyConfigExpressions
+          columns:
+
+          - type: columnDropdownSelector
+            displayName: Column Name
+            attributeName: columnNameExpressions
+            isRequired: false
+
+          - type: textBox
+            displayName: Expression (Column name to be enclosed within double quotes)
+            attributeName: sqlExpression
+            default: "ex. trunc(<column_name>, -5)"
+
+          isRequired: false
+          enableIf: "{% if (config.clusterKey and config.clusterKeyExpressions) %} true {% else %} false {% endif %}"
+        
+        - type: toggleButton
+          displayName: Auto Refresh
+          attributeName: autoRefresh
+          default: false
+          isRequired: false
+
+    - groupName: Dynamic Interactive Table Options
+      items:
+
+        - type: tabular
+          displayName: 'Lag Specification'
+          attributeName: lagSpecification
+          columns:
+
+          - type: textBox
+            displayName: Time Value
+            attributeName: lagValue
+            default: 60
+            isRequired: false
+            enableIf: "{% if config.autoRefresh %} true {% else %} false {% endif %}"
+
+          - type: dropdownSelector
+            displayName: Time Period
+            attributeName: lagPeriod
+            default: "Minutes"
+            options:
+            - Seconds
+            - Minutes
+            - Hours
+            - Days
+            isRequired: false
+            enableIf: "{% if config.autoRefresh %} true {% else %} false {% endif %}"
+          
+          isRequired: false
+          enableIf: "{% if config.autoRefresh %} true {% else %} false {% endif %}"  
+        - type: label
+          attributeName: note2
+          displayName: 
+                    "NOTE:
+                    \n
+                    Ensure the parameter targetInteractiveTableWarehouse is added in Workspace and 
+                    deployment environment  for successful creation of dynamic table.  
+                    Refer documentation for more info"
+          enableIf: "{%- if parameters == {} or parameters.targetInteractiveTableWarehouse == '' -%} true {%- else -%} false {%- endif -%}"
+
+        - type: textBox
+          displayName: Warehouse
+          attributeName: warehouseName
+          default: dev_wh_xs
+          isRequired: true
+          enableIf: "{% if config.autoRefresh %} true {% else %} false {% endif %}"
+      enableIf: "{% if config.autoRefresh %} true {% else %} false {% endif %}"
+name: Interactive Table
+type: NodeType
