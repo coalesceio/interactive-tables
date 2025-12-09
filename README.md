@@ -13,9 +13,9 @@ Interactive Table refresh automatically based on a SQL definition and maintain o
 **NOTE**: Interactive Table can be only created at the end of a data pipeline. It cannot be used as a source for other table.
 
 ### Interactive Table Node Configuration
-* [Node properties](interactive-table-node-properties)
-* [General Options](interactive-table-general-options)
-* [Dynamic Interactive Table Options](interactive-table-dynamic-interactive-table-options)
+* [Node properties](#interactive-table-node-properties)
+* [General Options](#interactive-table-general-options)
+* [Dynamic Interactive Table Options](i#nteractive-table-dynamic-interactive-table-options)
 
 ### Node properties
 | **Property** | **Description** |
