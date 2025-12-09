@@ -38,7 +38,7 @@ Interactive Table refresh automatically based on a SQL definition and maintain o
 | **Group by All** | Toggle: True/False<br/>**True**: DISTINCT is invisible. Data is grouped by all columns for processing<br/>**False**: DISTINCT is visible |
 | **Cluster key** | True/False toggle for clustering:<br/>- **True**: Specify clustering column and optional expressions<br/>- **False**: No clustering |
 | **Allow Expressions Cluster Key**| When cluster key is set to true. Allows to add an expression to the specified cluster key| 
-| **Auto Refresh** | Toggle: True/False <br>**True** Dynamic Interactive Table options visible.<br>-**False**: Creates Static Interactive table.|
+| **Auto Refresh** | Toggle: True/False <br/>**True** Dynamic Interactive Table options visible.<br/>-**False**: Creates Static Interactive table.|
 
 
 ### Dynamic Interactive Table Options
