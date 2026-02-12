@@ -10,7 +10,9 @@ The Coalesce Interactive Table UDN allows you to build and deploy Snowflake Inte
 
 Interactive Table refresh automatically based on a SQL definition and maintain optimized storage for low-latency, high-concurrency queries. This makes them ideal for powering live dashboards, APIs, and sub-second analytical loads—while reducing operational complexity and maintaining strong price-performance.
  
-**NOTE**: Interactive Table can be only created at the end of a data pipeline. It cannot be used as a source for other table.
+**NOTE**: 
+* Interactive Table can be only created at the end of a data pipeline. It cannot be used as a source for other table.
+* The Interactive Table feature is only available in AWS regions. For more information please refer the [Snowflake documentation](https://docs.snowflake.com/en/user-guide/interactive)
 
 ### Interactive Table Node Configuration
 * [Node properties](#interactive-table-node-properties)
