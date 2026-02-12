@@ -12,7 +12,7 @@ Interactive Table refresh automatically based on a SQL definition and maintain o
  
 **NOTE**: 
 * Interactive Table can be only created at the end of a data pipeline. It cannot be used as a source for other table.
-* The Interactive Table feature is only available in AWS regions. For more information please refer the [Snowflake documentation](https://docs.snowflake.com/en/user-guide/interactive)
+* The Interactive Table feature is only available in selected AWS regions. For more information please refer the [Snowflake documentation](https://docs.snowflake.com/en/user-guide/interactive)
 
 ### Interactive Table Node Configuration
 * [Node properties](#interactive-table-node-properties)
