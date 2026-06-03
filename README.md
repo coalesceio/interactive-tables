@@ -1,40 +1,48 @@
-### Interactive Table Package
+# Interactive Table Package
 
-### Package Includes
+The Coalesce Interactive Table Package helps you build and deploy Snowflake Interactive Tables for low-latency, high-performance analytical queries.
+
+## Package Includes
+
 * [Interactive Table](#interactive-table)
   
 ---
 ## Interactive Table
 
-The Coalesce Interactive Table UDN allows you to build and deploy Snowflake Interactive Table, which are optimized for low-latency, high-performance analytical queries.
+The Coalesce Interactive Table UDN allows you to build and deploy Snowflake Interactive Tables, which are optimized for low-latency, high-performance analytical queries.
 
-Interactive Table refresh automatically based on a SQL definition and maintain optimized storage for low-latency, high-concurrency queries. This makes them ideal for powering live dashboards, APIs, and sub-second analytical loads—while reducing operational complexity and maintaining strong price-performance.
+Interactive Tables refresh automatically based on a SQL definition and maintain optimized storage for low-latency, high-concurrency queries. This makes them ideal for powering live dashboards, APIs, and sub-second analytical loads while reducing operational complexity and maintaining strong price-performance.
  
-**NOTE**: 
-* Interactive Table can be only created at the end of a data pipeline. It cannot be used as a source for other table.
-* The Interactive Table feature is only available in selected AWS regions. For more information please refer the [Snowflake documentation](https://docs.snowflake.com/en/user-guide/interactive)
+### Note
+
+* Interactive Tables can only be created at the end of a data pipeline. They cannot be used as a source for other tables.
+* The Interactive Table feature is only available in selected AWS regions. For more information, refer to the [Snowflake documentation on Interactive Tables](https://docs.snowflake.com/en/user-guide/interactive).
 
 ### Interactive Table Node Configuration
-* [Node properties](#interactive-table-node-properties)
-* [General Options](#interactive-table-general-options)
-* [Dynamic Interactive Table Options](#interactive-table-dynamic-interactive-table-options)
 
-### Node properties
+The Interactive Table Node has 3 configuration groups:
+
+* [Node Properties](#node-properties)
+* [General Options](#general-options)
+* [Dynamic Interactive Table Options](#dynamic-interactive-table-options)
+
+### Node Properties
+
 | **Property** | **Description** |
 |-------------|-----------------|
 | **Storage Location** | (Required) Storage Location where the Interactive Table will be created |
 | **Node Type** | (Required) Name of template used to create node objects |
-| **Description** | A description of the node's purpose |
-| **Deploy Enabled** | If TRUE the node will be deployed/redeployed when changes are detected<br/>If FALSE the node will not be deployed or will be dropped during redeployment |
-					
-					
-### General Options 
+| **Description** | A description of the Node's purpose |
+| **Deploy Enabled** | If TRUE the Node will be deployed or redeployed when changes are detected<br/>If FALSE the Node will not be deployed or will be dropped during redeployment |
+
+### General Options
+
  <img width="357" height="656" alt="image_inttbl_go" src="https://github.com/user-attachments/assets/cdbd9d96-28f3-44ca-becb-361957bbf4d7" />
 
 
 | **Property** | **Description** |
 |---------|-------------|
-| **Multi Source** | Toggle: True/False<br/>Implementation of SQL UNIONs<br/>**True**: Combine multiple sources in a single node<br/>True Options:<br/>- **UNION**: Combines with duplicate elimination<br/>- **UNION ALL**: Combines without duplicate elimination |
+| **Multi Source** | Toggle: True/False<br/>Implementation of SQL UNIONs<br/>**True**: Combine multiple sources in a single Node<br/>True Options:<br/>- **UNION**: Combines with duplicate elimination<br/>- **UNION ALL**: Combines without duplicate elimination |
 | **Enable tests** | Toggle: True/False<br/>Determines if tests are enabled |
 | **Distinct** | Toggle: True/False<br/>**True**: Group by All is invisible. DISTINCT data is chosen for processing<br/>**False**: Group by All is visible |
 | **Group by All** | Toggle: True/False<br/>**True**: DISTINCT is invisible. Data is grouped by all columns for processing<br/>**False**: DISTINCT is visible |
@@ -44,6 +52,7 @@ Interactive Table refresh automatically based on a SQL definition and maintain o
 
 
 ### Dynamic Interactive Table Options
+
 <img width="383" height="395" alt="image" src="https://github.com/user-attachments/assets/1917d5d7-9ef3-4b7b-b2a9-dbd7b71343d5" />
 
 
@@ -53,15 +62,15 @@ Interactive Table refresh automatically based on a SQL definition and maintain o
 | **Lag Specification** |  **Time Value**: Frequency of the refresh<br/>- **Time Period**: Seconds/Minutes/Hours/Days |
 | **Warehouse** | (Required) Name of warehouse used to refresh the Interactive Table |	
 
-### Interactive Table  Deployment
+## Interactive Table Deployment
 
-#### Interactive Table  Initial Deployment Parameters
+### Interactive Table Initial Deployment Parameters
 
-The Interactive Table  includes an environment parameter that allows you to specify a different warehouse to refresh a Interactive Table in different environments.
+The Interactive Table includes an environment parameter that allows you to specify a different warehouse to refresh an Interactive Table in different Environments.
 
 The parameter name is `targetInteractiveTableWarehouse` and the default value is `DEV ENVIRONMENT`.
 
-When set to `DEV ENVIRONMENT`, the value entered in the Interactive Table Options config "Warehouse on which to execute Interactive Table" will be used when creating the Interactive Table.
+When set to `DEV ENVIRONMENT`, the value entered in the Interactive Table Options config "Warehouse on which to execute Interactive Table" is used when creating the Interactive Table.
 
 ```json
 {
@@ -69,29 +78,29 @@ When set to `DEV ENVIRONMENT`, the value entered in the Interactive Table Option
 }
 ```
 
-When set to any value other than `DEV ENVIRONMENT` the node will attempt to create the Interactive Table using a Snowflake warehouse with the specified value.
+When set to any value other than `DEV ENVIRONMENT`, the Node attempts to create the Interactive Table using a Snowflake warehouse with the specified value.
 
-For example, the Interactive Table will refresh using a warehouse named `compute_wh`.
+For example, the Interactive Table refreshes using a warehouse named `compute_wh`.
 
 ```json
 {
     "targetInteractiveTableWarehouse": "compute_wh"
 }
 ```
-> 📘 **Deployment of nodes without adding parameters**
+> 📘 **Deployment of Nodes without adding parameters**
 >
-> This results in a WARNING stage getting executed insisting to execute the node after adding parameters 
+> This results in a WARNING stage that prompts you to execute the Node after adding parameters.
 
-### Interactive Table  Initial Deployment
+### Interactive Table Initial Deployment
 
-When deployed for the first time into an environment the Interactive Table  node will execute the following stage:
+When deployed for the first time into an Environment, the Interactive Table Node executes the following stage:
 
 | **Stage** | **Description** |
 |-----------|----------------|
-| **Create  Interactive Table | This stage will execute a `CREATE OR REPLACE` statement and create a Interactive Table in the target environment. |
+| **Create Interactive Table** | This stage executes a `CREATE OR REPLACE` statement and creates an Interactive Table in the target Environment. |
 
 
-#### Interactive Table  Redeployment
+#### Interactive Table Redeployment
 
 After initial deployment, subsequent deployments may recreate the Interactive Table.
 
@@ -109,23 +118,23 @@ This executes a stage:
 |-----------|----------------|
 | **CREATE or REPLACE Interactive Table** | Executes CREATE or REPLACE to modify parameters |
 
-Also if the location of the node, node name, column level description, and table level description results in an `CREATE or REPLACE` statement, whereas table name change result in a `ALTER` statement.
+Changes to the Node location, Node name, column-level description, or table-level description also result in a `CREATE OR REPLACE` statement. A table name change results in an `ALTER` statement.
 
 ### Redeployment with no changes 
 
-If the nodes are redeployed with no changes compared to previous deployment,then no stages are executed
+If the Nodes are redeployed with no changes compared to the previous deployment, then no stages are executed.
 
-### Interactive Table  Undeployment
+### Interactive Table Undeployment
 
-A table will be dropped if all of these are true:
+A table is dropped if all of these are true:
 
-* The Interactive  Node is deleted from a space.
-* The space is committed to Git.
-* The space committed to Git is deployed to a higher level environment.
+* The Interactive Table Node is deleted from a Workspace.
+* The Workspace is committed to Git.
+* The Workspace committed to Git is deployed to a higher-level Environment.
 
 | **Stage** | **Description** |
 |-----------|----------------|
-| **Drop Interactive Table** | Removes table from target environment |
+| **Drop Interactive Table** | Removes table from target Environment |
 
 
 ---
