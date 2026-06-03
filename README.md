@@ -120,7 +120,7 @@ This executes a stage:
 
 Changes to the Node location, Node name, column-level description, or table-level description also result in a `CREATE OR REPLACE` statement. A table name change results in an `ALTER` statement.
 
-### Redeployment with no changes 
+### Redeployment With No Changes 
 
 If the Nodes are redeployed with no changes compared to the previous deployment, then no stages are executed.
 
